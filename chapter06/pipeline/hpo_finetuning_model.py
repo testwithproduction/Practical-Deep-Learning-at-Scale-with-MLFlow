@@ -21,33 +21,41 @@ def finetuning_dl_model(config, data_dir=None, num_epochs=3, num_gpus=0):
         train_file=f"{data_dir}/imdb/train.csv",
         val_file=f"{data_dir}/imdb/valid.csv",
         test_file=f"{data_dir}/imdb/test.csv",
-        batch_size=config['batch_size']
+        batch_size=config["batch_size"],
     )
 
-
-    classifier_model = TextClassifier(backbone=config['foundation_model'],
-                                      learning_rate=config['lr'],
-                                      optimizer=config['optimizer_type'],
-                                      num_classes=datamodule.num_classes,
-                                      metrics=torchmetrics.F1(datamodule.num_classes)
-                                      )
+    classifier_model = TextClassifier(
+        backbone=config["foundation_model"],
+        learning_rate=config["lr"],
+        optimizer=config["optimizer_type"],
+        num_classes=datamodule.num_classes,
+        metrics=torchmetrics.F1(datamodule.num_classes),
+    )
     mlflow.pytorch.autolog()
     metrics = {"loss": "val_cross_entropy", "f1": "val_f1"}
-    trainer = flash.Trainer(max_epochs=num_epochs,
-                            gpus=num_gpus,
-                            progress_bar_refresh_rate=0,
-                            callbacks=[TuneReportCallback(metrics, on='validation_end')])
-    
-    trainer.finetune(classifier_model, datamodule=datamodule, strategy=config['finetuning_strategies'])
-    mlflow.log_param('batch_size',config['batch_size'])
-    mlflow.set_tag('pipeline_step', __file__)
+    trainer = flash.Trainer(
+        max_epochs=num_epochs,
+        gpus=num_gpus,
+        progress_bar_refresh_rate=0,
+        callbacks=[TuneReportCallback(metrics, on="validation_end")],
+    )
+
+    trainer.finetune(
+        classifier_model,
+        datamodule=datamodule,
+        strategy=config["finetuning_strategies"],
+    )
+    mlflow.log_param("batch_size", config["batch_size"])
+    mlflow.set_tag("pipeline_step", __file__)
 
 
-def run_hpo_dl_model(num_samples=10,
-                     num_epochs=3,
-                     gpus_per_trial=0,
-                     tracking_uri=None,
-                     experiment_name="hpo-tuning-chapter06"):
+def run_hpo_dl_model(
+    num_samples=10,
+    num_epochs=3,
+    gpus_per_trial=0,
+    tracking_uri=None,
+    experiment_name="hpo-tuning-chapter06",
+):
 
     data_dir = os.path.join(os.getcwd(), "data")
 
@@ -63,7 +71,7 @@ def run_hpo_dl_model(num_samples=10,
         "optimizer_type": "Adam",
         "mlflow": {
             "experiment_name": experiment_name,
-            "tracking_uri": mlflow.get_tracking_uri()
+            "tracking_uri": mlflow.get_tracking_uri(),
         },
     }
 
@@ -71,30 +79,31 @@ def run_hpo_dl_model(num_samples=10,
         finetuning_dl_model,
         data_dir=data_dir,
         num_epochs=num_epochs,
-        num_gpus=gpus_per_trial)
+        num_gpus=gpus_per_trial,
+    )
 
     analysis = tune.run(
         trainable,
-        resources_per_trial={
-            "cpu": 1,
-            "gpu": gpus_per_trial
-        },
+        resources_per_trial={"cpu": 1, "gpu": gpus_per_trial},
         metric="f1",
         mode="max",
         config=config,
         num_samples=num_samples,
-        name="hpo_tuning_dl_model")
-    
+        name="hpo_tuning_dl_model",
+    )
+
     logger.info("Best hyperparameters found were: %s", analysis.best_config)
 
 
 def task():
-    run_hpo_dl_model(num_samples=10,
-                     num_epochs=3,
-                     gpus_per_trial=0,
-                     tracking_uri="http://localhost",
-                     experiment_name="hpo-tuning-chapter06")
+    run_hpo_dl_model(
+        num_samples=10,
+        num_epochs=3,
+        gpus_per_trial=0,
+        tracking_uri="http://100.65.79.57",
+        experiment_name="hpo-tuning-chapter06",
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     task()
